@@ -100,12 +100,9 @@ pnnx.Output             output      1 0 out
         const std::vector<int>& dims = captured_params.at("dims").ai;
 
         // Support for 5-rank tensors
-        if ((dims == std::vector<int>{1, 2, 0}) ||
-            (dims == std::vector<int>{1, 2, 3, 0}) ||
-            (dims == std::vector<int>{1, 2, 3, 4, 0}))
+        if ((dims == std::vector<int>{1, 2, 0}) || (dims == std::vector<int>{1, 2, 3, 0}) || (dims == std::vector<int>{1, 2, 3, 4, 0}))
             return true;
-        if ((dims == std::vector<int>{0, 2, 3, 1}) ||
-            (dims == std::vector<int>{0, 2, 3, 4, 1}))
+        if ((dims == std::vector<int>{0, 2, 3, 1}) || (dims == std::vector<int>{0, 2, 3, 4, 1}))
             return true;
         return false;
     }
@@ -172,9 +169,7 @@ pnnx.Output             output      1 0 out
             return;
         }
 
-        if ((input_rank == 3 && new_dims == std::vector<int>{1, 2, 0}) ||
-            (input_rank == 4 && new_dims == std::vector<int>{1, 2, 3, 0}) ||
-            (input_rank == 5 && new_dims == std::vector<int>{1, 2, 3, 4, 0}))
+        if ((input_rank == 3 && new_dims == std::vector<int>{1, 2, 0}) || (input_rank == 4 && new_dims == std::vector<int>{1, 2, 3, 0}) || (input_rank == 5 && new_dims == std::vector<int>{1, 2, 3, 4, 0}))
             op->params["3"] = 1;
     }
 };
