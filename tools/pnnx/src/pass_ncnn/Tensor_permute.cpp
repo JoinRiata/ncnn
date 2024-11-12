@@ -1,6 +1,9 @@
+// Tensor_permute.cpp
+
 // Tencent is pleased to support the open source community by making ncnn available.
 //
-// Copyright (C) 2021 THL A29 Limited, a Tencent company. All rights reserved.
+// Copyright (C)
+// 2021 THL A29 Limited, a Tencent company. All rights reserved.
 //
 // Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
 // in compliance with the License. You may obtain a copy of the License at
@@ -21,7 +24,7 @@ namespace ncnn {
 class Tensor_permute : public GraphRewriterPass
 {
 public:
-    const char* match_pattern_graph() const
+    const char* match_pattern_graph() const override
     {
         return R"PNNXIR(7767517
 3 2
@@ -31,44 +34,42 @@ pnnx.Output             output      1 0 out
 )PNNXIR";
     }
 
-    const char* type_str() const
+    const char* type_str() const override
     {
         return "Permute";
     }
 
-    const char* name_str() const
+    const char* name_str() const override
     {
         return "permute";
     }
 
-    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const
+    void write(Operator* op, const std::map<std::string, Parameter>& captured_params) const override
     {
-        op->params["0"] = 0;
-
         const int batch_index = op->inputs[0]->params["__batch_index"].i;
 
         const std::vector<int>& dims = captured_params.at("dims").ai;
 
-        int input_rank = (int)op->inputs[0]->shape.size();
+        int input_rank = static_cast<int>(op->inputs[0]->shape.size());
 
         if (input_rank == 0)
         {
-            // assume input is fine
-            input_rank = (int)dims.size();
+            // Assume input is fine
+            input_rank = static_cast<int>(dims.size());
         }
 
         if (batch_index >= 0 && batch_index < input_rank)
             input_rank -= 1;
 
-        if (input_rank > 4)
+        if (input_rank > 5)
         {
-            fprintf(stderr, "permute %d-rank tensor is not supported yet!\n", input_rank);
+            fprintf(stderr, "Error: permute %d-rank tensor is not supported yet!\n", input_rank);
             return;
         }
 
-        // drop permute batch index
+        // Drop permute batch index
         std::vector<int> new_dims;
-        for (int i = 0; i < (int)dims.size(); i++)
+        for (size_t i = 0; i < dims.size(); ++i)
         {
             if (dims[i] == batch_index)
                 continue;
@@ -77,89 +78,50 @@ pnnx.Output             output      1 0 out
             new_dims.push_back(new_dim);
         }
 
-        if (input_rank != (int)new_dims.size())
+        if (input_rank != static_cast<int>(new_dims.size()))
         {
-            fprintf(stderr, "permute %d-rank tensor with %d-rank dims is not possible\n", input_rank, (int)new_dims.size());
+            fprintf(stderr, "Error: permute %d-rank tensor with %d-rank dims is not possible\n", input_rank, static_cast<int>(new_dims.size()));
             return;
         }
 
-        if (input_rank == 1)
+        // Validate the permutation
+        std::vector<int> sorted_dims = new_dims;
+        std::sort(sorted_dims.begin(), sorted_dims.end());
+        for (int i = 0; i < input_rank; ++i)
         {
-            // noop
+            if (sorted_dims[i] != i)
+            {
+                fprintf(stderr, "Error: Invalid permutation dimensions\n");
+                return;
+            }
+        }
+
+        // Check if permutation is identity
+        bool is_identity = true;
+        for (int i = 0; i < input_rank; ++i)
+        {
+            if (new_dims[i] != i)
+            {
+                is_identity = false;
+                break;
+            }
+        }
+
+        if (is_identity)
+        {
+            // No permutation needed
             op->type = "Noop";
+            return;
         }
-        if (input_rank == 2)
+
+        // Set order_type to -1 to indicate custom permutation
+        op->params["0"] = -1;
+
+        // Set the permutation parameters
+        for (int i = 0; i < input_rank; ++i)
         {
-            if (new_dims == std::vector<int>{0, 1})
-                op->type = "Noop";
-            else if (new_dims == std::vector<int>{1, 0})
-                op->params["0"] = 1;
-        }
-        if (input_rank == 3)
-        {
-            if (new_dims == std::vector<int>{0, 1, 2})
-                op->type = "Noop";
-            else if (new_dims == std::vector<int>{0, 2, 1})
-                op->params["0"] = 1;
-            else if (new_dims == std::vector<int>{1, 0, 2})
-                op->params["0"] = 2;
-            else if (new_dims == std::vector<int>{1, 2, 0})
-                op->params["0"] = 3;
-            else if (new_dims == std::vector<int>{2, 0, 1})
-                op->params["0"] = 4;
-            else if (new_dims == std::vector<int>{2, 1, 0})
-                op->params["0"] = 5;
-        }
-        if (input_rank == 4)
-        {
-            if (new_dims == std::vector<int>{0, 1, 2, 3})
-                op->type = "Noop";
-            else if (new_dims == std::vector<int>{0, 1, 3, 2})
-                op->params["0"] = 1;
-            else if (new_dims == std::vector<int>{0, 2, 1, 3})
-                op->params["0"] = 2;
-            else if (new_dims == std::vector<int>{0, 2, 3, 1})
-                op->params["0"] = 3;
-            else if (new_dims == std::vector<int>{0, 3, 1, 2})
-                op->params["0"] = 4;
-            else if (new_dims == std::vector<int>{0, 3, 2, 1})
-                op->params["0"] = 5;
-            else if (new_dims == std::vector<int>{1, 0, 2, 3})
-                op->params["0"] = 6;
-            else if (new_dims == std::vector<int>{1, 0, 3, 2})
-                op->params["0"] = 7;
-            else if (new_dims == std::vector<int>{1, 2, 0, 3})
-                op->params["0"] = 8;
-            else if (new_dims == std::vector<int>{1, 2, 3, 0})
-                op->params["0"] = 9;
-            else if (new_dims == std::vector<int>{1, 3, 0, 2})
-                op->params["0"] = 10;
-            else if (new_dims == std::vector<int>{1, 3, 2, 0})
-                op->params["0"] = 11;
-            else if (new_dims == std::vector<int>{2, 0, 1, 3})
-                op->params["0"] = 12;
-            else if (new_dims == std::vector<int>{2, 0, 3, 1})
-                op->params["0"] = 13;
-            else if (new_dims == std::vector<int>{2, 1, 0, 3})
-                op->params["0"] = 14;
-            else if (new_dims == std::vector<int>{2, 1, 3, 0})
-                op->params["0"] = 15;
-            else if (new_dims == std::vector<int>{2, 3, 0, 1})
-                op->params["0"] = 16;
-            else if (new_dims == std::vector<int>{2, 3, 1, 0})
-                op->params["0"] = 17;
-            else if (new_dims == std::vector<int>{3, 0, 1, 2})
-                op->params["0"] = 18;
-            else if (new_dims == std::vector<int>{3, 0, 2, 1})
-                op->params["0"] = 19;
-            else if (new_dims == std::vector<int>{3, 1, 0, 2})
-                op->params["0"] = 20;
-            else if (new_dims == std::vector<int>{3, 1, 2, 0})
-                op->params["0"] = 21;
-            else if (new_dims == std::vector<int>{3, 2, 0, 1})
-                op->params["0"] = 22;
-            else if (new_dims == std::vector<int>{3, 2, 1, 0})
-                op->params["0"] = 23;
+            std::string key = std::to_string(i + 1); // Parameter keys start from "1"
+            op->params[key] = new_dims[i];
         }
     }
 };

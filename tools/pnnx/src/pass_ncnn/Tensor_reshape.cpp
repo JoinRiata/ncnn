@@ -54,9 +54,9 @@ pnnx.Output             output      1 0 out
 
         // drop shape batch index
         std::vector<int> new_shape;
-        for (int i = 0; i < (int)shape.size(); i++)
+        for (size_t i = 0; i < shape.size(); i++)
         {
-            if (i == batch_index && shape[i] == 1)
+            if (i == static_cast<size_t>(batch_index) && shape[i] == 1)
                 continue;
 
             new_shape.push_back(shape[i]);
@@ -71,7 +71,7 @@ pnnx.Output             output      1 0 out
             }
         }
 
-        const int shape_rank = (int)new_shape.size();
+        const int shape_rank = static_cast<int>(new_shape.size());
 
         if (shape_rank > 5)
         {
@@ -79,27 +79,36 @@ pnnx.Output             output      1 0 out
             return;
         }
 
+        // Map the shape dimensions to parameters
         if (shape_rank == 1)
         {
             op->params["0"] = new_shape[0];
         }
-        if (shape_rank == 2)
+        else if (shape_rank == 2)
         {
             op->params["0"] = new_shape[1];
             op->params["1"] = new_shape[0];
         }
-        if (shape_rank == 3)
+        else if (shape_rank == 3)
         {
             op->params["0"] = new_shape[2];
             op->params["1"] = new_shape[1];
             op->params["2"] = new_shape[0];
         }
-        if (shape_rank == 4)
+        else if (shape_rank == 4)
         {
             op->params["0"] = new_shape[3];
             op->params["1"] = new_shape[2];
             op->params["11"] = new_shape[1];
             op->params["2"] = new_shape[0];
+        }
+        else if (shape_rank == 5)
+        {
+            op->params["0"] = new_shape[4];
+            op->params["1"] = new_shape[3];
+            op->params["11"] = new_shape[2];
+            op->params["2"] = new_shape[1];
+            op->params["12"] = new_shape[0];
         }
     }
 };

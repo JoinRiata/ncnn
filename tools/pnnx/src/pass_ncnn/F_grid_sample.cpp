@@ -46,21 +46,25 @@ pnnx.Output             output        1 0 out
         const std::string& mode = captured_params.at("mode").s;
         if (mode == "bilinear")
             op->params["0"] = 1;
-        if (mode == "nearest")
+        else if (mode == "nearest")
             op->params["0"] = 2;
-        if (mode == "bicubic")
+        else if (mode == "bicubic")
             op->params["0"] = 3;
+        else
+            op->params["0"] = 0; // default
 
         const std::string& padding_mode = captured_params.at("padding_mode").s;
         if (padding_mode == "zeros")
             op->params["1"] = 1;
-        if (padding_mode == "border")
+        else if (padding_mode == "border")
             op->params["1"] = 2;
-        if (padding_mode == "reflection")
+        else if (padding_mode == "reflection")
             op->params["1"] = 3;
+        else
+            op->params["1"] = 0; // default
 
         op->params["2"] = captured_params.at("align_corners").b ? 1 : 0;
-        op->params["3"] = 0;
+        op->params["3"] = 0; // set default value for future use
     }
 };
 
@@ -95,9 +99,13 @@ pnnx.Output             output      1 0 out
     {
         const std::vector<int>& dims = captured_params.at("dims").ai;
 
-        if ((dims == std::vector<int>{1, 2, 0}) || (dims == std::vector<int>{1, 2, 3, 0}))
+        // Support for 5-rank tensors
+        if ((dims == std::vector<int>{1, 2, 0}) ||
+            (dims == std::vector<int>{1, 2, 3, 0}) ||
+            (dims == std::vector<int>{1, 2, 3, 4, 0}))
             return true;
-        if ((dims == std::vector<int>{0, 2, 3, 1}) || (dims == std::vector<int>{0, 2, 3, 4, 1}))
+        if ((dims == std::vector<int>{0, 2, 3, 1}) ||
+            (dims == std::vector<int>{0, 2, 3, 4, 1}))
             return true;
         return false;
     }
@@ -107,18 +115,22 @@ pnnx.Output             output      1 0 out
         const std::string& mode = captured_params.at("mode").s;
         if (mode == "bilinear")
             op->params["0"] = 1;
-        if (mode == "nearest")
+        else if (mode == "nearest")
             op->params["0"] = 2;
-        if (mode == "bicubic")
+        else if (mode == "bicubic")
             op->params["0"] = 3;
+        else
+            op->params["0"] = 0; // default
 
         const std::string& padding_mode = captured_params.at("padding_mode").s;
         if (padding_mode == "zeros")
             op->params["1"] = 1;
-        if (padding_mode == "border")
+        else if (padding_mode == "border")
             op->params["1"] = 2;
-        if (padding_mode == "reflection")
+        else if (padding_mode == "reflection")
             op->params["1"] = 3;
+        else
+            op->params["1"] = 0; // default
 
         op->params["2"] = captured_params.at("align_corners").b ? 1 : 0;
 
@@ -126,18 +138,18 @@ pnnx.Output             output      1 0 out
 
         const std::vector<int>& dims = captured_params.at("dims").ai;
 
-        int input_rank = (int)op->inputs[0]->shape.size();
+        int input_rank = static_cast<int>(op->inputs[0]->shape.size());
 
         if (input_rank == 0)
         {
             // assume input is fine
-            input_rank = (int)dims.size();
+            input_rank = static_cast<int>(dims.size());
         }
 
         if (batch_index >= 0 && batch_index < input_rank)
             input_rank -= 1;
 
-        if (input_rank > 4)
+        if (input_rank > 5)
         {
             fprintf(stderr, "permute %d-rank tensor is not supported yet!\n", input_rank);
             return;
@@ -145,7 +157,7 @@ pnnx.Output             output      1 0 out
 
         // drop permute batch index
         std::vector<int> new_dims;
-        for (int i = 0; i < (int)dims.size(); i++)
+        for (int i = 0; i < static_cast<int>(dims.size()); i++)
         {
             if (dims[i] == batch_index)
                 continue;
@@ -154,13 +166,15 @@ pnnx.Output             output      1 0 out
             new_dims.push_back(new_dim);
         }
 
-        if (input_rank != (int)new_dims.size())
+        if (input_rank != static_cast<int>(new_dims.size()))
         {
-            fprintf(stderr, "permute %d-rank tensor with %d-rank dims is not possible\n", input_rank, (int)new_dims.size());
+            fprintf(stderr, "permute %d-rank tensor with %d-rank dims is not possible\n", input_rank, static_cast<int>(new_dims.size()));
             return;
         }
 
-        if ((input_rank == 3 && new_dims == std::vector<int>{1, 2, 0}) || (input_rank == 4 && new_dims == std::vector<int>{1, 2, 3, 0}))
+        if ((input_rank == 3 && new_dims == std::vector<int>{1, 2, 0}) ||
+            (input_rank == 4 && new_dims == std::vector<int>{1, 2, 3, 0}) ||
+            (input_rank == 5 && new_dims == std::vector<int>{1, 2, 3, 4, 0}))
             op->params["3"] = 1;
     }
 };
