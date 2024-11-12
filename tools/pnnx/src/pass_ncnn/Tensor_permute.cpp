@@ -16,6 +16,7 @@
 // specific language governing permissions and limitations under the License.
 
 #include "pass_ncnn.h"
+#include <algorithm>
 
 namespace pnnx {
 
